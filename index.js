@@ -1,35 +1,48 @@
 require("dotenv").config();
+
 const express = require("express");
+const path = require("path");
+const summarizeText = require("./summarize.js");
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
-const summarizeText = require("./summarize.js");
-
-// Parse JSON bodies (as sent by API clients)
+// Parse JSON request bodies
 app.use(express.json());
 
-// Serves static files from the 'public' directory
-app.use(express.static("public"));
+// Serve files from public directory
+app.use(express.static(path.join(__dirname, "public")));
 
-app.post("/summarize", (req, res) => {
-    
-  // get the text_to_summarize property from the request body
-  const text = req.body.text_to_summarize;
+// Summarization API
+app.post("/summarize", async (req, res) => {
+    try {
+      const text = req.body.text_to_summarize;
 
-  // call your summarizeText function, passing in the text from the request
-  summarizeText(text)
-    .then((response) => {
-      res.send(response); // Send the summary text as a response to the client
-    })
-    .catch((error) => {
-      console.log(error.message);
-    });
+      // Validate input
+      if (!text || typeof text !== "string") {
+        return res.status(400).send("Please provide text to summarize.");
+      }
 
+      if (text.trim().length < 200) {
+        return res
+          .status(400)
+          .send("Text must contain at least 200 characters.");
+      }
+
+      console.log("Received text for summarization...");
+
+      const summary = await summarizeText(text);
+
+      res.send(summary);
+    } catch (error) {
+      console.error("Summarization error:", error.message);
+
+      res.status(500).send("Failed to summarize the text.");
+    }
 });
 
-// Start the server
+// Start server
 app.listen(PORT, () => {
-  console.log(`server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
